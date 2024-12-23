@@ -207,81 +207,278 @@ exports.createCourse = async (req, res) => {
  */
 
 exports.getMyCourses = async (req, res) => {
-    try {
-      const userId = req.user?._id;
-  
-      // Fetch user and created courses
-      const user = await User.findById(userId).populate("createdCourses");
-  
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-  
-      if (!user.createdCourses || user.createdCourses.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "No courses found for this user",
-        });
-      }
-  
-      // Process each course to calculate total duration
-      const coursesWithDetails = await Promise.all(
-        user.createdCourses.map(async (course) => {
-          // Fetch topics for the course
-          const topics = await CourseTopic.find({ course: course._id });
-  
-          // Fetch subtopics and calculate total duration
-          let totalDurationInSeconds = 0;
-          const topicsWithSubtopics = await Promise.all(
-            topics.map(async (topic) => {
-              // Fetch subtopics for the topic
-              const subtopics = await CourseSubTopic.find({ topic: topic._id });
-  
-              // Calculate total duration for subtopics
-              subtopics.forEach((subtopic) => {
-                const [hours, minutes, seconds] = subtopic.videoPlaybackTime
-                  .split(":")
-                  .map(Number);
-                totalDurationInSeconds += hours * 3600 + minutes * 60 + seconds;
-              });
-  
-              return {
-                ...topic.toObject(),
-                subtopics,
-              };
-            })
-          );
-  
-          // Convert total seconds to HH:MM:SS
-          const hours = Math.floor(totalDurationInSeconds / 3600);
-          const minutes = Math.floor((totalDurationInSeconds % 3600) / 60);
-          const seconds = totalDurationInSeconds % 60;
-  
-          const totalDuration = `${String(hours).padStart(2, "0")}:${String(
-            minutes
-          ).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  
-          return {
-            ...course.toObject(),
-            topics: topicsWithSubtopics,
-            totalDuration, // Add total duration to the course object
-          };
-        })
-      );
-  
-      return res.status(200).json({
-        success: true,
-        message: "Courses retrieved successfully",
-        data: coursesWithDetails,
-      });
-    } catch (error) {
-      return res.status(500).json({
+  try {
+    const userId = req.user?._id;
+
+    // Fetch user and created courses
+    const user = await User.findById(userId).populate("createdCourses");
+
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: "Internal Server Error",
-        error: error.message,
+        message: "User not found",
       });
     }
-  };
+
+    if (!user.createdCourses || user.createdCourses.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No courses found for this user",
+      });
+    }
+
+    // Process each course to calculate total duration
+    const coursesWithDetails = await Promise.all(
+      user.createdCourses.map(async (course) => {
+        // Fetch topics for the course
+        const topics = await CourseTopic.find({ course: course._id });
+
+        // Fetch subtopics and calculate total duration
+        let totalDurationInSeconds = 0;
+        const topicsWithSubtopics = await Promise.all(
+          topics.map(async (topic) => {
+            // Fetch subtopics for the topic
+            const subtopics = await CourseSubTopic.find({ topic: topic._id });
+
+            // Calculate total duration for subtopics
+            subtopics.forEach((subtopic) => {
+              const [hours, minutes, seconds] = subtopic.videoPlaybackTime
+                .split(":")
+                .map(Number);
+              totalDurationInSeconds += hours * 3600 + minutes * 60 + seconds;
+            });
+
+            return {
+              ...topic.toObject(),
+              subtopics,
+            };
+          })
+        );
+
+        // Convert total seconds to HH:MM:SS
+        const hours = Math.floor(totalDurationInSeconds / 3600);
+        const minutes = Math.floor((totalDurationInSeconds % 3600) / 60);
+        const seconds = totalDurationInSeconds % 60;
+
+        const totalDuration = `${String(hours).padStart(2, "0")}:${String(
+          minutes
+        ).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+
+        return {
+          ...course.toObject(),
+          topics: topicsWithSubtopics,
+          totalDuration, // Add total duration to the course object
+        };
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Courses retrieved successfully",
+      data: coursesWithDetails,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/update-course/{courseId}:
+ *   put:
+ *     summary: Update a course by course ID
+ *     tags:
+ *       - Courses
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the course to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: "Learn Advanced Node.js"
+ *               description:
+ *                 type: string
+ *                 example: "Advanced topics on Node.js for experienced developers"
+ *               price:
+ *                 type: number
+ *                 example: 599
+ *               category:
+ *                 type: string
+ *                 description: ID of the updated course category (must be a valid ObjectId)
+ *                 example: "64c9f5e7d8f8923b34310b1a"
+ *               tags:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["Node.js", "Backend", "Advanced"]
+ *               image:
+ *                 type: string
+ *                 example: "https://example.com/updated-course-image.jpg"
+ *               benefits:
+ *                 type: string
+ *                 example: "Master advanced Node.js concepts"
+ *               requirements:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["Intermediate knowledge of Node.js", "Understanding of JavaScript"]
+ *     responses:
+ *       200:
+ *         description: Course updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Course updated successfully"
+ *                 data:
+ *                   type: object
+ *                   description: The updated course object
+ *       400:
+ *         description: Bad Request (e.g., missing required fields)
+ *       404:
+ *         description: Course not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+exports.updateCourseByCourseId = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    // Check if courseId is provided
+    if (!courseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Course ID is required",
+      });
+    }
+
+    // Update the course and return the updated document
+    const updatedCourse = await Course.findByIdAndUpdate(
+      courseId,
+      { ...req.body },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedCourse) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Course updated successfully",
+      data: updatedCourse,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/delete-course/{courseId}:
+ *   delete:
+ *     summary: Delete a course by course ID
+ *     tags:
+ *       - Courses
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the course to delete
+ *     responses:
+ *       200:
+ *         description: Course deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Course deleted successfully"
+ *       404:
+ *         description: Course or user not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+exports.deleteCourseByCourseId = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user._id;
+
+    // Find the course by ID
+    const course = await Course.findById(courseId);
+
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found",
+      });
+    }
+
+    // Verify the course belongs to the current user
+    const user = await User.findById(userId);
+
+    if (!user || !user.createdCourses.includes(courseId)) {
+      return res.status(404).json({
+        success: false,
+        message: "User or course not found in user's createdCourses list",
+      });
+    }
+
+    // Delete the course
+    await course.deleteOne();
+
+    // Remove the course ID from the user's createdCourses array
+    user.createdCourses = user.createdCourses.filter(
+      (createdCourseId) => createdCourseId.toString() !== courseId
+    );
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Course deleted successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};

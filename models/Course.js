@@ -40,8 +40,7 @@ const courseSchema = new mongoose.Schema({
 
   coursetype:{
     type:String,
-    enum:["Public","Draft"],
-    default:"Public"
+    enum:["Public","Draft"]
   }
 },{timestamps:true});
 
