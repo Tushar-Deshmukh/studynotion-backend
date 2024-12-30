@@ -28,7 +28,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["Male", "Female", "Other"],
       required: true,
-      default:"Male"
+      default: "Male",
     },
 
     role: {
@@ -59,10 +59,25 @@ const userSchema = new mongoose.Schema(
       type: Date,
     },
 
-    createdCourses:[{
-      type:mongoose.Schema.Types.ObjectId,
-      ref:'Course'
-    }]
+    profileImage: {
+      type: String,
+      default:
+        "https://img.freepik.com/premium-vector/man-professional-business-casual-young-avatar-icon-illustration_1277826-623.jpg",
+    },
+
+    createdCourses: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Course",
+      },
+    ],
+
+    enrolledCourses: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Course",
+      },
+    ],
   },
   { timestamps: true }
 );

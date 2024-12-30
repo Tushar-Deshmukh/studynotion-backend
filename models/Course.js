@@ -41,6 +41,11 @@ const courseSchema = new mongoose.Schema({
   coursetype:{
     type:String,
     enum:["Public","Draft"]
+  },
+
+  createdBy:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"User"
   }
 },{timestamps:true});
 
