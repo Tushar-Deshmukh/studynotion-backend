@@ -75,7 +75,6 @@ exports.register = async (req, res) => {
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
-      
       // User exists but OTP not verified
       if (!existingUser.otpVerified) {
         const otp = Math.floor(100000 + Math.random() * 900000);
@@ -514,6 +513,90 @@ exports.resetPassword = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/auth/my-profile:
+ *   get:
+ *     summary: Get the profile details of the currently authenticated user
+ *     tags:
+ *       - Users
+ *     responses:
+ *       200:
+ *         description: Profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile retrieved successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: "64cdef12345a1b2c3d4e5f6g"
+ *                     firstName:
+ *                       type: string
+ *                       example: "John"
+ *                     lastName:
+ *                       type: string
+ *                       example: "Doe"
+ *                     email:
+ *                       type: string
+ *                       example: "john.doe@example.com"
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2023-01-01T00:00:00Z"
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+exports.myProfile = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+
+    // Validate the user ID
+    if (!userId) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Find the user in the database
+    const user = await User.findById(userId)
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Return the user's profile data
+    return res.status(200).json({
+      success: true,
+      message: "Profile retrieved successfully",
+      data: user,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
     });
   }
 };
