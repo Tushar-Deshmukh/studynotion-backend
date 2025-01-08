@@ -42,10 +42,30 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+
+    displayName:{
+      type:String,
+      default:''
+    },
+
+    profession:{
+      type:String,
+      enum:["Developer","Student"],
+      default:''
+    },
+    dateOfBirth:{
+      type:Date
+    },
+    about:{
+      type:String,
+      default:""
+    },
+
     otpVerified: {
       type: Boolean,
       default: false,
     },
+    
     otp: {
       type: Number,
     },

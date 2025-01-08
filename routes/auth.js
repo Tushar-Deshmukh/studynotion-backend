@@ -8,6 +8,7 @@ const {
   forgotPassword,
   resetPassword,
   myProfile,
+  updateProfile,
 } = require("../controllers/auth");
 const checkLogin = require("../middlewares/checkLogin");
 
@@ -17,5 +18,6 @@ router.post("/verify-otp", verifyOtp);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.get("/my-profile", checkLogin, myProfile);
+router.put("/update-profile",checkLogin,updateProfile);
 
 module.exports = router;

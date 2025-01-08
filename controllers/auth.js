@@ -576,7 +576,7 @@ exports.myProfile = async (req, res) => {
     }
 
     // Find the user in the database
-    const user = await User.findById(userId)
+    const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({
@@ -590,6 +590,139 @@ exports.myProfile = async (req, res) => {
       success: true,
       message: "Profile retrieved successfully",
       data: user,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @swagger
+ * /api/auth/update-profile:
+ *   put:
+ *     summary: Update the profile of the currently authenticated user
+ *     tags:
+ *       - Users
+ *     security:
+ *       - bearerAuth: []  # This route requires the bearer token for authorization
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *                 example: "John"
+ *               lastName:
+ *                 type: string
+ *                 example: "Doe"
+ *               email:
+ *                 type: string
+ *                 example: "john.doe@example.com"
+ *               mobileNumber:
+ *                 type: string
+ *                 example: "+1234567890"
+ *               displayName:
+ *                 type: string
+ *                 example: "JohnDoe"
+ *               profession:
+ *                 type: string
+ *                 example: "Developer"
+ *               dateOfBirth:
+ *                 type: string
+ *                 format: date
+ *                 example: "1990-01-01"
+ *               about:
+ *                 type: string
+ *                 example: "Experienced web developer with expertise in Node.js"
+ *               password:
+ *                 type: string
+ *                 example: "newPassword123"
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile updated successfully"
+ *       400:
+ *         description: Bad Request - Validation errors or missing fields
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+
+    // Ensure user is authenticated
+    if (!userId) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const {
+      mobileNumber,
+      displayName,
+      profession,
+      dateOfBirth,
+      about,
+      password,
+      gender,
+      profileImage
+    } = req.body;
+
+    // If password is provided, hash it
+    let updatedData = {
+      mobileNumber,
+      displayName,
+      profession,
+      dateOfBirth,
+      about,
+      gender,
+      profileImage
+    };
+
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      updatedData.password = await bcrypt.hash(password, salt);
+    }
+
+    // Update the user's profile
+    const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
+      new: true,
+    });
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Return the updated user profile
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: updatedUser,
     });
   } catch (error) {
     console.log(error);
