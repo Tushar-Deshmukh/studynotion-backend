@@ -6,8 +6,6 @@ const authRoutes = require("./routes/auth");
 const uploadRoutes = require("./routes/upload");
 const courseCategoryRoutes = require("./routes/CourseCategoryRoutes");
 const courseRoutes = require("./routes/CourseRoutes");
-const courseTopicRoutes = require("./routes/CourseTopicRoutes");
-const courseSubTopicRoutes = require("./routes/CourseSubTopicRoutes");
 const cartRoutes = require("./routes/CartRoutes");
 const stripeRoutes = require("./routes/StripeRoutes");
 const dotenv = require("dotenv");
@@ -23,7 +21,17 @@ dotenv.config();
 connectDB();
 
 //middleware
-app.use(express.json());
+// app.use(express.json());
+
+// Use express.json() for all routes except the webhook
+app.use((req, res, next) => {
+  if (req.originalUrl === "/api/webhook") {
+    next(); // Skip body parsing for the webhook endpoint
+  } else {
+    express.json()(req, res, next); // Use express.json() for all other routes
+  }
+});
+
 app.use(cors());
 
 const PORT = process.env.PORT || 5000;
@@ -83,8 +91,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api", uploadRoutes);
 app.use("/api",courseCategoryRoutes);
 app.use("/api",courseRoutes);
-app.use("/api",courseTopicRoutes);
-app.use("/api",courseSubTopicRoutes);
 app.use("/api",cartRoutes);
 app.use("/api",stripeRoutes);
 

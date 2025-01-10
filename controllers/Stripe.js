@@ -1,9 +1,12 @@
 require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const User = require("../models/User");
+const { sendEnrollmentEmail } = require("../helpers/sendEnrollmentEmail");
+const Course = require("../models/Course");
 
 // This is your Stripe CLI webhook secret for testing your endpoint locally.
-const endpointSecret = "whsec_...";
+const endpointSecret =
+  "whsec_9f82a93ecb7def426656a5614f74ded28fda2dce08e7e4ef8fb3415a68000668";
 
 /**
  * @swagger
@@ -141,15 +144,16 @@ exports.createCheckoutSession = async (req, res) => {
 };
 
 exports.enrollCourse = async (req, res) => {
-  const sig = request.headers["stripe-signature"];
+  const sig = req.headers["stripe-signature"];
 
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
+    // Construct the event using the raw request body
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
   } catch (err) {
-    response.status(400).send(`Webhook Error: ${err.message}`);
-    return;
+    console.error("Webhook Error:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   // Handle the event
@@ -158,26 +162,66 @@ exports.enrollCourse = async (req, res) => {
       const session = event.data.object;
       const { courseId, userId } = session.metadata;
 
-      // Update the user's enrolledCourses array
-      User.findByIdAndUpdate(
-        userId,
-        { $push: { enrolledCourses: courseId } },
-        { new: true }
-      )
-        .exec()
-        .then((user) => {
-          console.log("User updated:", user);
-        })
-        .catch((err) => {
-          console.error("Error updating user:", err);
+      try {
+        // Find the user
+        const user = await User.findById(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            message: "User not found",
+          });
+        }
+
+        //find the course
+        const course = await Course.findById(courseId);
+        if (!course) {
+          return res.status(404).json({
+            success: false,
+            message: "Course not found",
+          });
+        }
+
+        // Check if the course is already enrolled
+        if (user.enrolledCourses.includes(courseId)) {
+          return res.status(400).json({
+            success: false,
+            message: "Course already enrolled",
+          });
+        }
+
+        // Push the courseId into the enrolledCourses array
+        user.enrolledCourses.push(courseId);
+
+        // Save the updated user
+        await user.save();
+
+        console.log("User updated:", user);
+
+        const username = `${user.firstName} ${user.lastName}`;
+
+        const enrollmentEmailSent = await sendEnrollmentEmail(
+          course.title,
+          username,
+          user.email
+        );
+        console.log("email sent", enrollmentEmailSent);
+
+        return res.status(200).json({
+          success: true,
+          message: "Course enrolled successfully",
+          user,
         });
+      } catch (err) {
+        console.error("Error updating user:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Internal Server Error",
+          error: err.message,
+        });
+      }
 
-      break;
-    // ... handle other event types
     default:
-      console.log(`Unhandled event type ${event.type}`);
+      console.log(`Unhandled event type: ${event.type}`);
+      return res.status(200).send(); // Acknowledge unhandled event types
   }
-
-  // Return a 200 response to acknowledge receipt of the event
-  response.send();
 };

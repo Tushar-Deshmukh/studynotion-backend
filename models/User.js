@@ -50,8 +50,8 @@ const userSchema = new mongoose.Schema(
 
     profession:{
       type:String,
-      enum:["Developer","Student"],
-      default:''
+      enum:["Developer","Student","Instructor"],
+      default:'Student'
     },
     dateOfBirth:{
       type:Date

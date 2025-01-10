@@ -1,7 +1,6 @@
 const Course = require("../models/Course");
 const User = require("../models/User");
-const CourseTopic = require("../models/CourseTopic");
-const CourseSubTopic = require("../models/CourseSubTopic");
+
 
 /**
  * @swagger
@@ -228,55 +227,11 @@ exports.getMyCourses = async (req, res) => {
       });
     }
 
-    // Process each course to calculate total duration
-    const coursesWithDetails = await Promise.all(
-      user.createdCourses.map(async (course) => {
-        // Fetch topics for the course
-        const topics = await CourseTopic.find({ course: course._id });
-
-        // Fetch subtopics and calculate total duration
-        let totalDurationInSeconds = 0;
-        const topicsWithSubtopics = await Promise.all(
-          topics.map(async (topic) => {
-            // Fetch subtopics for the topic
-            const subtopics = await CourseSubTopic.find({ topic: topic._id });
-
-            // Calculate total duration for subtopics
-            subtopics.forEach((subtopic) => {
-              const [hours, minutes, seconds] = subtopic.videoPlaybackTime
-                .split(":")
-                .map(Number);
-              totalDurationInSeconds += hours * 3600 + minutes * 60 + seconds;
-            });
-
-            return {
-              ...topic.toObject(),
-              subtopics,
-            };
-          })
-        );
-
-        // Convert total seconds to HH:MM:SS
-        const hours = Math.floor(totalDurationInSeconds / 3600);
-        const minutes = Math.floor((totalDurationInSeconds % 3600) / 60);
-        const seconds = totalDurationInSeconds % 60;
-
-        const totalDuration = `${String(hours).padStart(2, "0")}:${String(
-          minutes
-        ).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-
-        return {
-          ...course.toObject(),
-          topics: topicsWithSubtopics,
-          totalDuration, // Add total duration to the course object
-        };
-      })
-    );
 
     return res.status(200).json({
       success: true,
       message: "Courses retrieved successfully",
-      data: coursesWithDetails,
+      data:user.createdCourses,
     });
   } catch (error) {
     return res.status(500).json({
@@ -471,6 +426,7 @@ exports.getAllCoursesByCategoryId = async (req, res) => {
 exports.updateCourseByCourseId = async (req, res) => {
   try {
     const { courseId } = req.params;
+    const { topics, coursetype } = req.body;
 
     // Check if courseId is provided
     if (!courseId) {
@@ -480,19 +436,78 @@ exports.updateCourseByCourseId = async (req, res) => {
       });
     }
 
-    // Update the course and return the updated document
-    const updatedCourse = await Course.findByIdAndUpdate(
-      courseId,
-      { ...req.body },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedCourse) {
+    // Find the course
+    const course = await Course.findById(courseId);
+    if (!course) {
       return res.status(404).json({
         success: false,
         message: "Course not found",
       });
     }
+
+    // Update coursetype if provided
+    if (coursetype) {
+      course.coursetype = coursetype;
+    }
+
+    // Update topics and calculate durations if topics are provided
+    if (topics && Array.isArray(topics)) {
+      let totalDurationInSeconds = 0;
+
+      const updatedTopics = topics.map((topic) => {
+        let topicDurationInSeconds = 0;
+
+        // Calculate duration for each subtopic in the topic
+        topic.subTopics.forEach((subtopic) => {
+          const [hours, minutes, seconds] = subtopic.videoPlaybackTime
+            .split(":")
+            .map(Number);
+          const subtopicDuration = hours * 3600 + minutes * 60 + seconds;
+          topicDurationInSeconds += subtopicDuration;
+        });
+
+        // Convert topic duration to HH:MM:SS format
+        const topicHours = Math.floor(topicDurationInSeconds / 3600);
+        const topicMinutes = Math.floor((topicDurationInSeconds % 3600) / 60);
+        const topicSeconds = topicDurationInSeconds % 60;
+        const topicDuration = `${String(topicHours).padStart(2, "0")}:${String(
+          topicMinutes
+        ).padStart(2, "0")}:${String(topicSeconds).padStart(2, "0")}`;
+
+        // Add topicDuration to the topic object
+        return {
+          ...topic,
+          topicDuration, // Add calculated topic duration
+        };
+      });
+
+      console.log('updatedTopics before',updatedTopics);
+
+      // Calculate total duration of the course
+      updatedTopics.forEach((topic) => {
+        const [hours, minutes, seconds] = topic.topicDuration
+          .split(":")
+          .map(Number);
+        totalDurationInSeconds += hours * 3600 + minutes * 60 + seconds;
+      });
+
+      console.log('updatedTopics after',updatedTopics);
+
+      // Convert total duration to HH:MM:SS format
+      const totalHours = Math.floor(totalDurationInSeconds / 3600);
+      const totalMinutes = Math.floor((totalDurationInSeconds % 3600) / 60);
+      const totalSeconds = totalDurationInSeconds % 60;
+      const totalDuration = `${String(totalHours).padStart(2, "0")}:${String(
+        totalMinutes
+      ).padStart(2, "0")}:${String(totalSeconds).padStart(2, "0")}`;
+
+      // Update courseContent and totalDuration
+      course.courseContent = { topics: updatedTopics };
+      course.totalDuration = totalDuration;
+    }
+
+    // Save the updated course
+    const updatedCourse = await course.save();
 
     return res.status(200).json({
       success: true,
@@ -680,7 +695,10 @@ exports.getCourseByCourseId = async (req, res) => {
     }
 
     // Find the course by ID
-    const course = await Course.findById(courseId).populate('createdBy','firstName lastName');
+    const course = await Course.findById(courseId).populate(
+      "createdBy",
+      "firstName lastName"
+    );
 
     if (!course) {
       return res.status(404).json({
@@ -689,51 +707,10 @@ exports.getCourseByCourseId = async (req, res) => {
       });
     }
 
-    // Fetch topics for the course
-    const topics = await CourseTopic.find({ course: courseId });
-
-    // Process each topic to calculate total duration
-    let totalDurationInSeconds = 0;
-    const topicsWithSubtopics = await Promise.all(
-      topics.map(async (topic) => {
-        // Fetch subtopics for the topic
-        const subtopics = await CourseSubTopic.find({ topic: topic._id });
-
-        // Calculate total duration for subtopics
-        subtopics.forEach((subtopic) => {
-          const [hours, minutes, seconds] = subtopic.videoPlaybackTime
-            .split(":")
-            .map(Number);
-          totalDurationInSeconds += hours * 3600 + minutes * 60 + seconds;
-        });
-
-        return {
-          ...topic.toObject(),
-          subtopics,
-        };
-      })
-    );
-
-    // Convert total seconds to HH:MM:SS
-    const hours = Math.floor(totalDurationInSeconds / 3600);
-    const minutes = Math.floor((totalDurationInSeconds % 3600) / 60);
-    const seconds = totalDurationInSeconds % 60;
-
-    const totalDuration = `${String(hours).padStart(2, "0")}:${String(
-      minutes
-    ).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-
-    // Construct the detailed course object
-    const courseDetails = {
-      ...course.toObject(),
-      topics: topicsWithSubtopics,
-      totalDuration,
-    };
-
     return res.status(200).json({
       success: true,
       message: "Course retrieved successfully",
-      data: courseDetails,
+      data: course,
     });
   } catch (error) {
     return res.status(500).json({
