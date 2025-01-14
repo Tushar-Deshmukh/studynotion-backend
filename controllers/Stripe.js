@@ -3,6 +3,7 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const User = require("../models/User");
 const { sendEnrollmentEmail } = require("../helpers/sendEnrollmentEmail");
 const Course = require("../models/Course");
+const CourseProgress = require("../models/CourseProgress");
 
 // This is your Stripe CLI webhook secret for testing your endpoint locally.
 const endpointSecret =
@@ -96,6 +97,24 @@ exports.createCheckoutSession = async (req, res) => {
   try {
     const { amount, courseId } = req.body;
     const userId = req?.user?._id;
+
+    //find user with the userid
+    const user = await User.findById(userId);
+    
+    if(!user){
+      return res.status(404).json({
+        success:false,
+        message:'User not found'
+      })
+    }
+
+    //Check user has previously enrolled in the course or not
+    if(user.enrolledCourses.includes(courseId)){
+      return res.status(409).json({
+        success:false,
+        message:'You have already enrolled in this course!'
+      })
+    }
 
     // Validate inputs
     if (!amount || !courseId) {
@@ -195,7 +214,16 @@ exports.enrollCourse = async (req, res) => {
         // Save the updated user
         await user.save();
 
+        const courseProgress = new CourseProgress({
+          userId:userId,
+          courseId:courseId,
+          completedSubTopics:[],
+        })
+
+        await courseProgress.save();
+
         console.log("User updated:", user);
+        console.log("Course Progress:", courseProgress);
 
         const username = `${user.firstName} ${user.lastName}`;
 

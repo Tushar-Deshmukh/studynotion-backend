@@ -324,7 +324,7 @@ exports.getAllCoursesByCategoryId = async (req, res) => {
     // Find courses by category ID
     const courses = await Course.find({ category: categoryId }).populate({
       path: "createdBy",
-      select: "firstName lastName",
+      select: "firstName lastName about profileImage",
     });
 
     if (!courses || courses.length === 0) {
@@ -481,7 +481,6 @@ exports.updateCourseByCourseId = async (req, res) => {
         };
       });
 
-      console.log('updatedTopics before',updatedTopics);
 
       // Calculate total duration of the course
       updatedTopics.forEach((topic) => {
@@ -491,7 +490,6 @@ exports.updateCourseByCourseId = async (req, res) => {
         totalDurationInSeconds += hours * 3600 + minutes * 60 + seconds;
       });
 
-      console.log('updatedTopics after',updatedTopics);
 
       // Convert total duration to HH:MM:SS format
       const totalHours = Math.floor(totalDurationInSeconds / 3600);
@@ -697,7 +695,7 @@ exports.getCourseByCourseId = async (req, res) => {
     // Find the course by ID
     const course = await Course.findById(courseId).populate(
       "createdBy",
-      "firstName lastName"
+      "firstName lastName about profileImage"
     );
 
     if (!course) {
