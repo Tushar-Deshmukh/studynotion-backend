@@ -92,12 +92,19 @@ const Course = require("../models/Course");
 exports.myEnrolledCourses = async (req, res) => {
   try {
     const userId = req?.user?._id;
+    const { status } = req?.query;
 
-    const enrollCourses = await CourseProgress.find({
-      userId: userId,
-    }).populate({
+    // Define the filter object
+    const filter = { userId: userId };
+
+    // Add status to the filter if it's provided and not "All"
+    if (status && status !== "All") {
+      filter.status = status;
+    }
+
+    const enrollCourses = await CourseProgress.find(filter).populate({
       path: "courseId",
-      select: "_id title description totalDuration image",
+      select: "_id title description totalDuration image status courseContent",
     });
 
     if (!enrollCourses && enrollCourses.length === 0) {
@@ -122,6 +129,149 @@ exports.myEnrolledCourses = async (req, res) => {
 
 /**
  * @swagger
+ * /api/my-enrolled-course/{courseId}:
+ *   get:
+ *     summary: Get a specific enrolled course by ID for the authenticated user
+ *     description: Fetches details of a specific course enrolled by the authenticated user, including course name, description, total duration, progress percentage, and course content.
+ *     tags:
+ *       - Enrolled Courses
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the course to fetch
+ *     responses:
+ *       200:
+ *         description: Enrolled course fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Enrolled course fetched successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: "64c9f5e7d8f8923b34310b1a"
+ *                     title:
+ *                       type: string
+ *                       example: "Introduction to Programming"
+ *                     description:
+ *                       type: string
+ *                       example: "Learn the basics of programming."
+ *                     totalDuration:
+ *                       type: string
+ *                       example: "02:30:00"
+ *                     progressPercentage:
+ *                       type: number
+ *                       example: 50
+ *                     courseContent:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                             example: "64c9f5e7d8f8923b34310b1b"
+ *                           title:
+ *                             type: string
+ *                             example: "Variables and Data Types"
+ *                           duration:
+ *                             type: string
+ *                             example: "00:30:00"
+ *       401:
+ *         description: Unauthorized (e.g., user not logged in)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Unauthorized: Please log in"
+ *       404:
+ *         description: Course not found or user not enrolled in the course
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Course not found or you are not enrolled in this course"
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal Server Error"
+ *                 error:
+ *                   type: string
+ *                   example: "Error fetching enrolled course"
+ */
+
+exports.myEnrolledCourseById = async (req, res) => {
+  try {
+    const userId = req?.user?._id;
+    const { courseId } = req.params;
+
+    // Find the enrolled course for the user
+    const enrolledCourse = await CourseProgress.findOne({
+      userId: userId,
+      courseId: courseId,
+    }).populate({
+      path: "courseId",
+      select: "_id title description totalDuration image courseContent",
+    });
+
+    // Check if the course exists and the user is enrolled
+    if (!enrolledCourse) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found or you are not enrolled in this course",
+      });
+    }
+
+    // Return the enrolled course details
+    return res.status(200).json({
+      success: true,
+      message: "Enrolled course fetched successfully",
+      data: enrolledCourse,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/**
+ * @swagger
  * /api/update-course-progress:
  *   put:
  *     summary: Update course progress by marking a subtopic as completed
@@ -129,7 +279,7 @@ exports.myEnrolledCourses = async (req, res) => {
  *       This API updates the course progress for a user by adding a subtopic ID to the `completedSubTopics` array.
  *       It also calculates the progress percentage and updates the status of the course progress.
  *     tags:
- *       - Course Progress
+ *       - Enrolled Courses
  *     security:
  *       - bearerAuth: []
  *     requestBody:

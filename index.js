@@ -9,6 +9,7 @@ const courseRoutes = require("./routes/CourseRoutes");
 const cartRoutes = require("./routes/CartRoutes");
 const stripeRoutes = require("./routes/StripeRoutes");
 const courseProgressRoutes = require('./routes/CourseProgressRoutes');
+const ratingRoutes = require('./routes/RatingRoutes')
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const cors = require("cors");
@@ -95,6 +96,7 @@ app.use("/api",courseRoutes);
 app.use("/api",cartRoutes);
 app.use("/api",stripeRoutes);
 app.use("/api",courseProgressRoutes)
+app.use('/api',ratingRoutes);
 
 
 

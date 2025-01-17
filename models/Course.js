@@ -95,6 +95,11 @@ const courseSchema = new mongoose.Schema(
       defalut: "00:00:00",
     },
 
+    averageRating: {
+      type: Number,
+      default: 0,
+    },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
